@@ -104,7 +104,7 @@ def initialize_realsense():
     return pipeline, config
 
 def stream_sensor(pig_id, pipeline, config):
-    path = f"/home/pi/Desktop/ROBOTSOFTWARE/Data/PIG{pig_id}/"
+    path = f"./ROBOTSOFTWARE/Data/Data_Estrus_2024/PIG{pig_id}/"
     os.makedirs(path, exist_ok=True)
 
     try:
@@ -218,10 +218,12 @@ def main():
     print("Robot starting in 3 seconds...")
     sleep(3)
 
+    pig_index = 0  # Initialize pig index outside the while loop
+
     while True:
         print("Starting new cycle")
-        for i in range(TOTAL_PIGS):
-            if i == 0:
+        for _ in range(TOTAL_PIGS):
+            if pig_index == 0:
                 print("start")
                 action = stepper.step(30000, "left", 0.5, docking=False)
             else:
@@ -229,25 +231,31 @@ def main():
                 action = stepper.step(110000, "left", 0.5, docking=False)
             
             if action == "mag_detected":
-                print(f"Magnetic sensor triggered at position {i+1}")
+                print(f"Magnetic sensor triggered at position {pig_index+1}")
                 sleep(1)  # Wait for a second before continuing
+            elif action == "right_end":
+                print(f"Ending sensor triggered at position {pig_index}, returning to the reset position")
+                pig_index = 0  # Reset pig_index to 0
+                break  # Exit the inner loop and continue with the next cycle
             else:
                 handle_stop(action, stepper)
             
-            print(f"moved to {i+1}")
+            print(f"moved to {pig_index+1}")
 
-            if PIG_IDS[i] != 999:
+            if PIG_IDS[pig_index] != 999:
                 try:
-                    stream_sensor(PIG_IDS[i], pipeline, config)
-                    print(f"Processed pig ID: {PIG_IDS[i]}")
+                    stream_sensor(PIG_IDS[pig_index], pipeline, config)
+                    print(f"Processed pig ID: {PIG_IDS[pig_index]}")
                 except Exception as e:
                     print(f"Failed to initialize camera: {e}")
                     sleep(3)
                     pipeline, config = initialize_realsense()
             else:
                 sleep(1)
+            
+            pig_index = (pig_index + 1) % TOTAL_PIGS  # Increment pig index and wrap around
 
-        # After processing all pigs, move right until reset sensor is triggered
+        # After processing all pigs or if ending sensor triggered, move right until reset sensor is triggered
         print("Moving to reset position...")
         while not check_end_sensor(stepper):
             stepper.step(1000, "right", 1000, docking=False)
@@ -257,8 +265,9 @@ def main():
             stepper.step(1000, "right", 500, docking=True)
         
         print("Reset position reached")
+        pig_index = 0  # Reset pig_index to 0 after reaching the reset position
         print("Cycle completed. Waiting for 1 minute before starting next cycle...")
-        sleep(60)  # Wait for 1 minute before starting the next cycle
+        sleep(1)  # Wait for 1 minute before starting the next cycle
 
 
 if __name__ == "__main__":
