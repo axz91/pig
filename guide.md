@@ -43,7 +43,7 @@ sudo systemctl daemon-reload
 ```bash {"id":"01J77N8YMK9JZR9WNEM6ZAKHTN"}
 sudo systemctl start pig_robot.service
 sudo systemctl restart pig_robot.service
-
+sudo systemctl disable --now pig_robot.service
 ```
 
 6. Check the status of the service:
@@ -51,11 +51,7 @@ sudo systemctl restart pig_robot.service
 ```bash {"id":"01J77N8YMK9JZR9WNEM7XMHGT4"}
 sudo systemctl status pig_robot.service
 journalctl -u pig_robot.service
-
+sudo systemctl disable --now pig_robot.service
 ```
 
 7. Stop the service:
-
-```git-rebase {"id":"01J77NVG92TZAXK76PRR955BBM"}
-sudo systemctl stop pig_robot.service
-```

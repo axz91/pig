@@ -25,7 +25,19 @@ PIG_IDS = [999, 999, 50089, 50221, 50151, 50974, 50919, 50094, 50222, 50981,
 # Define total number of pigs
 TOTAL_PIGS = 20
 # Constants for the pins of the stepper motor and other sensors
-STEPPER_PINS = [13, 15, 11, 40, 37, 38]
+# STEP, DIR, ENA, END, RESET, MAG
+
+#BOARD 29 = GPIO 5
+#BOARD 15 = GPIO 22
+#BOARD 17 = GPIO 11
+
+#BOARD 40 = GPIO 21
+#BOARD 37 = GPIO 26
+#BOARD 36 = GPIO 16
+
+
+STEPPER_PINS =[29, 15, 11, 37, 16, 18]
+
 
 
 
@@ -134,9 +146,9 @@ def initialize_realsense():
     config.enable_stream(rs.stream.infrared, 0, 640, 480, rs.format.y8, 30)
     return pipeline, config
 
+
 def stream_sensor(pig_id, pipeline, config):
-    # Capture and process sensor data for a specific pig
-    path = f"./ROBOTSOFTWARE/Data/Data_Estrus_2024/PIG{pig_id}/"
+    path = f"./Data/PIG{pig_id}/"
     os.makedirs(path, exist_ok=True)
 
     try:
@@ -164,9 +176,10 @@ def stream_sensor(pig_id, pipeline, config):
         
         if aligned_frames:
             timestamp = datetime.datetime.now()
-            filename = f"PID_{pig_id}"
+            # New filename format
+            filename = f"{pig_id}_{timestamp.year}_{timestamp.month}_{timestamp.day}_{timestamp.hour}_{timestamp.minute}_{timestamp.second}_1"
             save_data(aligned_frames, intr, path, filename)
-            print(f"Data saved for pig ID: {pig_id}")
+            print(f"Data has been saved for pig ID: {pig_id}")
         else:
             print(f"No frames captured for pig ID: {pig_id}")
     
@@ -241,67 +254,63 @@ def check_reset_sensor(stepper):
     reset_status = GPIO.input(stepper.resetPin)
     return reset_status == 0
 
+
+
+
 def main():
-    # Initialize GPIO and RealSense camera
-    initialize_gpio()
-    pipeline, config = initialize_realsense()
-    
-    # Create a Stepper object to control the motor
-    stepper = Stepper(STEPPER_PINS)
-
-    print("Robot starting in 3 seconds...")
-    sleep(3)  # Wait for 3 seconds before starting
-
-    pig_index = 0  # Initialize pig index outside the while loop to maintain continuity between cycles
+    stepper = Stepper()  # Initialize your stepper motor
+    pipeline, config = initialize_realsense()  # Initialize your RealSense camera
 
     while True:  # Main loop that runs indefinitely
-        print("Starting new cycle")
-        for _ in range(TOTAL_PIGS):  # Loop through all pig positions
-            if pig_index == 0:  # If at the first position
-                print("start")
-                action = stepper.step(30000, "left", 0.5, docking=False)  # Move to the first position
-            else:  # For subsequent positions
-                action = stepper.step(5000, "left", 0.5, docking=False)  # Small step
-                action = stepper.step(110000, "left", 0.5, docking=False)  # Larger step
-            
-            if action == "mag_detected":  # If magnetic sensor is triggered
-                print(f"Magnetic sensor triggered at position {pig_index+1}")
-                sleep(1)  # Wait for a second before continuing
-            elif action == "right_end":  # If end sensor is triggered
-                print(f"Ending sensor triggered at position {pig_index}, returning to the reset position")
-                pig_index = 0  # Reset pig_index to 0
-                break  # Exit the inner loop and continue with the next cycle
-            else:
-                handle_stop(action, stepper)  # Handle other stop conditions
-            
-            print(f"moved to {pig_index+1}")
+        t1 = datetime.datetime.now()
+        if t1.minute % 1 <= 3:
+            print("Starting new cycle")
+            pig_index = 0
 
-            if PIG_IDS[pig_index] != 999:  # If there's a valid pig ID at this position
-                try:
-                    stream_sensor(PIG_IDS[pig_index], pipeline, config)  # Capture and save sensor data
-                    print(f"Processed pig ID: {PIG_IDS[pig_index]}")
-                except Exception as e:
-                    print(f"Failed to initialize camera: {e}")
-                    sleep(3)
-                    pipeline, config = initialize_realsense()  # Reinitialize camera if there's an error
-            else:
-                sleep(1)  # If no valid pig ID, just wait for a second
-            
-            pig_index = (pig_index + 1) % TOTAL_PIGS  # Increment pig index and wrap around if necessary
+            # Move to the first position
+            print("Moving to the first position")
+            action = stepper.step(30000, "left", 0.5, docking=False)
 
-        # After processing all pigs or if ending sensor triggered, move right until reset sensor is triggered
-        print("Moving to reset position...")
-        while not check_end_sensor(stepper):
-            stepper.step(1000, "right", 1000, docking=False)  # Move right until end sensor is triggered
-        
-        print("End sensor triggered, moving to reset position...")
-        while not check_reset_sensor(stepper):
-            stepper.step(1000, "right", 500, docking=True)  # Move right until reset sensor is triggered
-        
-        print("Reset position reached")
-        pig_index = 0  # Reset pig_index to 0 after reaching the reset position
-        print("Cycle completed. Waiting for 1 minute before starting next cycle...")
-        sleep(1)  # Wait for 1 minute before starting the next cycle
+            while True:  # Loop until we reach the end
+                if action == "mag_detected":
+                    print(f"Magnetic sensor triggered at position {pig_index+1}")
+                    
+                    if PIG_IDS[pig_index] != 999:  # If there's a valid pig ID at this position
+                        try:
+                            stream_sensor(PIG_IDS[pig_index], pipeline, config)  # Capture and save sensor data
+                            print(f"Processed pig ID: {PIG_IDS[pig_index]}")
+                        except Exception as e:
+                            print(f"Failed to initialize camera: {e}")
+                            sleep(3)
+                            pipeline, config = initialize_realsense()  # Reinitialize camera if there's an error
+                    else:
+                        print(f"Skipping photo for position {pig_index+1} (ID: 999)")
+                    
+                    sleep(1)  # Short pause after processing or skipping
+
+                    # Move to the next position
+                    action = stepper.step(5000, "left", 0.5, docking=False)  # Small step
+                    action = stepper.step(110000, "left", 0.5, docking=False)  # Larger step
+                    pig_index += 1
+
+                elif check_end_sensor(stepper):
+                    print("Ending sensor triggered, moving back to reset position")
+                    break  # Exit the inner loop and move to reset position
+
+                else:
+                    handle_stop(action, stepper)  # Handle other stop conditions
+
+            # Move back to reset position
+            print("Moving to reset position...")
+            # continues moving the stepper motor to the right until the end sensor is triggered.
+            while not check_reset_sensor(stepper):
+                stepper.step(1000, "right", 500, docking=True)
+                
+            print("Reset position reached")
+            print("Cycle completed. Waiting for 1 minute before starting next cycle...")
+            sleep(60)  # Wait for 1 minute before starting the next cycle
+
+
 
 if __name__ == "__main__":
     main()  # Run the main function if this script is executed directly
