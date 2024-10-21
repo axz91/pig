@@ -16,7 +16,7 @@ from realsense_device_manager import post_process_depth_frame
 #Add Changes:
 #git add .
 #git commit -m "Your commit message"
-#git push origin main
+#git push origin master
 
 
 # Constants id for pigs
