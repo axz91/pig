@@ -19,6 +19,7 @@ from realsense_device_manager import post_process_depth_frame
 #git push origin master
 
 
+
 # Constants id for pigs
 PIG_IDS = [999, 999, 50089, 50221, 50151, 50974, 50919, 50094, 50222, 50981, 
            50043, 50078, 50079, 50031, 50152, 55016, 55017, 55018, 55019, 55020]
@@ -37,11 +38,6 @@ TOTAL_PIGS = 20
 
 
 STEPPER_PINS =[29, 15, 11, 37, 16, 18]
-
-
-
-
-
 
 
 
@@ -256,7 +252,6 @@ def check_reset_sensor(stepper):
 
 
 
-
 def main():
     stepper = Stepper()  # Initialize your stepper motor
     pipeline, config = initialize_realsense()  # Initialize your RealSense camera
@@ -309,7 +304,6 @@ def main():
             print("Reset position reached")
             print("Cycle completed. Waiting for 1 minute before starting next cycle...")
             sleep(60)  # Wait for 1 minute before starting the next cycle
-
 
 
 if __name__ == "__main__":
